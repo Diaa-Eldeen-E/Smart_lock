@@ -23,6 +23,7 @@
 //*****************************************************************************
 
 #include <stdint.h>
+#include "TM4C1294NCPDT.h"
 
 //*****************************************************************************
 //
@@ -34,9 +35,27 @@ static void NmiSR(void);
 static void FaultISR(void);
 static void IntDefaultHandler(void);
 
+extern void GPIOJ_handler();
+
 #ifndef HWREG
 #define HWREG(x) (*((volatile uint32_t *)(x)))
 #endif
+
+
+
+typedef struct __attribute__((packed)) ContextStateFrame {
+
+	uint32_t non;
+	uint32_t r0;
+	uint32_t r1;
+	uint32_t r2;
+	uint32_t r3;
+	uint32_t r12;
+	uint32_t lr;
+	uint32_t return_address;
+	uint32_t xpsr;
+} sContextStateFrame;
+
 
 //*****************************************************************************
 //
@@ -50,7 +69,7 @@ extern int main(void);
 // Reserve space for the system stack.
 //
 //*****************************************************************************
-static uint32_t pui32Stack[128];
+static uint32_t pui32Stack[512];
 
 //*****************************************************************************
 //
@@ -81,11 +100,11 @@ void (* const g_pfnVectors[])(void) =
     0,                                      // Reserved
     0,                                      // Reserved
     0,                                      // Reserved
-    IntDefaultHandler,                      // SVCall handler
+	IntDefaultHandler,                      // SVCall handler
     IntDefaultHandler,                      // Debug monitor handler
     0,                                      // Reserved
-    IntDefaultHandler,                      // The PendSV handler
-    IntDefaultHandler,                      // The SysTick handler
+	IntDefaultHandler,                      // The PendSV handler
+	IntDefaultHandler,                      // The SysTick handler
     IntDefaultHandler,                      // GPIO Port A
     IntDefaultHandler,                      // GPIO Port B
     IntDefaultHandler,                      // GPIO Port C
@@ -137,7 +156,7 @@ void (* const g_pfnVectors[])(void) =
     IntDefaultHandler,                      // ADC1 Sequence 2
     IntDefaultHandler,                      // ADC1 Sequence 3
     IntDefaultHandler,                      // External Bus Interface 0
-    IntDefaultHandler,                      // GPIO Port J
+	GPIOJ_handler,                      // GPIO Port J
     IntDefaultHandler,                      // GPIO Port K
     IntDefaultHandler,                      // GPIO Port L
     IntDefaultHandler,                      // SSI2 Rx and Tx
@@ -184,7 +203,7 @@ void (* const g_pfnVectors[])(void) =
     IntDefaultHandler,                      // AES 0
     IntDefaultHandler,                      // DES3DES 0
     IntDefaultHandler,                      // LCD Controller 0
-    IntDefaultHandler,                      // Timer 6 subtimer A
+	IntDefaultHandler,                      // Timer 6 subtimer A
     IntDefaultHandler,                      // Timer 6 subtimer B
     IntDefaultHandler,                      // Timer 7 subtimer A
     IntDefaultHandler,                      // Timer 7 subtimer B
@@ -291,31 +310,69 @@ NmiSR(void)
 //*****************************************************************************
 //
 // This is the code that gets called when the processor receives a fault
-// interrupt.  This simply enters an infinite loop, preserving the system state
-// for examination by a debugger.
+// interrupt.  FaultISR passes the current stack pointer to myFaultISR
+// which contains the system state before the fault.
+// The examination is done by a debugger.
 //
 //*****************************************************************************
-static void
-FaultISR(void)
-{
-    //
-    // Enter an infinite loop.
-    //
-    while(1)
-    {
-    }
+static void myFaultISR(sContextStateFrame* frame) {
+
+	// Debug steps
+	// First Read the fault register and determine what kind of error happened
+
+	//read the fault register
+	uint32_t ui32FaultNum = SCB->CFSR;
+
+
+	// if imprecise
+	if(ui32FaultNum & BIT10) {
+		__BKPT();
+		while(1);	// Enter an infinite loop.
+
+		// Insert this to make it precise (Must be inserted before the code that caused the problem)
+//		SCnSCB->ACTLR |= BIT1;	//Disable write buffer to make the imprecise faults precise
+
+	}
+
+	/* Note that if there is no fault, that could mean that an SVCall
+	 * occurred when the interrupts are disabled
+	 */
+	__BKPT();
+	while(1);	// Enter an infinite loop.
 }
+
+
+static void FaultISR(void) {
+
+	__asm(
+			"tst lr, #4 \n"		\
+			"ite eq \n"			\
+			"mrseq r0, msp \n"	\
+			"mrsne r0, psp \n"	\
+			"b myFaultISR \n"	\
+			);
+
+	// This should never be reached
+	myFaultISR((void*) 0);	// Just to remove unused function warning
+	while(1);	// Enter an infinite loop.
+}
+
+
 
 //*****************************************************************************
 //
 // This is the code that gets called when the processor receives an unexpected
-// interrupt.  This simply enters an infinite loop, preserving the system state
-// for examination by a debugger.
+// interrupt.  This simply stores the ISR number in a variable and then enters
+// an infinite loop, preserving the system state for examination by a debugger.
 //
 //*****************************************************************************
-static void
-IntDefaultHandler(void)
-{
+static void IntDefaultHandler(void) {
+
+	uint8_t ui8ISRNum = SCB->ICSR;	// This holds which interrupt has occurred
+
+	ui8ISRNum *= 1;	//Just for removing the warning
+
+	__BKPT();
     //
     // Go into an infinite loop.
     //
