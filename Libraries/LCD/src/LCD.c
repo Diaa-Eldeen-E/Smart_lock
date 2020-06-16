@@ -117,7 +117,7 @@ void LCD_Custom_Char (uint8_t location ,char *characterArray)   //locations from
 	if(location<8)
 	{
 		LCD_Command (CGRAM_beginning_Address+(8*location));	// Command 0x40 and onwards forces the device to point CGRAM address
-		char i;
+		uint8_t i;
 		for(i=0;i<8;i++)	// Write 8 byte for generation of 1 character
 			LCD_Print_Char(characterArray[i]);
 	}
