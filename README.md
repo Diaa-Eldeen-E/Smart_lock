@@ -9,7 +9,9 @@
 	- By reprogramming the microcontroller
 
 
-### It just displays an error message when the password is incorrect but it could be extended to fire an alaram for example by changing the function "incorrect_message" which gets called when the password is wrong
 
-### When the entered password is correct the function "correct_message" gets called, so it could be extended for any application.
+- A function "correct_message" gets called when the entered password is correct
+- A function "incorrect_message" gets called when the entered password is incorrect
+
+The software could be extended for any application by changing the behaviour of those two function
 
