@@ -1,5 +1,5 @@
 
-[![Build Status](https://travis-ci.com/diaa3007/Smart_lock.svg?branch=master)](https://travis-ci.com/diaa3007/Smart_lock/)
+[![Build Status](https://api.travis-ci.com/Diaa-Eldeen-E/Smart_lock.svg?branch=master)](https://app.travis-ci.com/github/Diaa-Eldeen-E/Smart_lock/)
 
 ### A smart lock system using an LCD and a keypad user interface.
 
